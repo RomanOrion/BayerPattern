@@ -1,0 +1,153 @@
+import dv_processing as dv
+
+import time
+
+import cv2 as cv
+
+from datetime import timedelta
+# Open any camera
+
+capture = dv.io.CameraCapture()
+#events = dv.EventStore()
+# Initialize an accumulator with some resolution
+
+visualizer = dv.visualization.EventVisualizer(capture.getEventResolution())
+
+# Apply color scheme configuration, these values can be modified to taste
+
+visualizer.setPositiveColor(dv.visualization.colors.iniBlue())
+
+visualizer.setNegativeColor(dv.visualization.colors.darkGrey())
+
+#event visual for (odd,odd)
+visualizer_red = dv.visualization.EventVisualizer(capture.getEventResolution())
+
+visualizer_red.setBackgroundColor(dv.visualization.colors.white())
+visualizer_red.setPositiveColor(dv.visualization.colors.red())
+visualizer_red.setNegativeColor(dv.visualization.colors.darkGrey())
+
+#event visual for (even, odd)
+visualizer_green1 = dv.visualization.EventVisualizer(capture.getEventResolution())
+
+visualizer_green1.setBackgroundColor(dv.visualization.colors.white())
+visualizer_green1.setPositiveColor(dv.visualization.colors.green())
+visualizer_green1.setNegativeColor(dv.visualization.colors.darkGrey())
+
+
+#event visual for  (odd, even )
+visualizer_green2 = dv.visualization.EventVisualizer(capture.getEventResolution())
+
+visualizer_green2.setBackgroundColor(dv.visualization.colors.white())
+visualizer_green2.setPositiveColor(dv.visualization.colors.green())
+visualizer_green2.setNegativeColor(dv.visualization.colors.iniBlue())
+
+#event visual for (even,even)
+visualizer_blue = dv.visualization.EventVisualizer(capture.getEventResolution())
+
+visualizer_blue.setBackgroundColor(dv.visualization.colors.white())
+visualizer_blue.setPositiveColor(dv.visualization.colors.iniBlue())
+visualizer_blue.setNegativeColor(dv.visualization.colors.blue())
+
+
+# Initialize a preview window
+
+cv.namedWindow("Preview", cv.WINDOW_NORMAL)
+
+
+# Initialize a slicer
+
+slicer = dv.EventStreamSlicer()
+
+
+
+# Declare the callback method for slicer
+
+def slicing_callback(events: dv.EventStore):
+    events_red = dv.EventStore()
+    events_green1 = dv.EventStore()
+    events_green2 = dv.EventStore()
+    events_blue = dv.EventStore()
+    
+    # Generate a preview frame
+    if events is not None:  # check that there is events
+         for ev in events:  # for each event
+            x = int(ev.x())
+            y = int(ev.y())
+            if (ev.x() % 2 != 0 and ev.y() % 2 != 0):  # if the event is red
+            #   x = int(ev.x()/ 2) these commented outlines are for scaling  
+            #  y = int(ev.y()/ 2) 
+                events_red.push_back(ev.timestamp(), x, y, ev.polarity())
+            elif (ev.x() % 2 != 0 and ev.y() % 2 == 0):  # if the event is green 1
+             #   x = int(ev.x() / 2)  
+                #  y = int(ev.y() / 2 + 0.5)
+                events_green1.push_back(ev.timestamp(), x, y, ev.polarity())
+            elif (ev.x() % 2 == 0 and ev.y() % 2 != 0):  # if the event is green 2
+                #x = int(ev.x() / 2 + 0.5)
+                #y = int(ev.y() / 2)
+                events_green2.push_back(ev.timestamp(), x, y, ev.polarity())
+            elif (ev.x() % 2 == 0 and ev.y() % 2 == 0):  # if the event is blue
+                #x = int(ev.x() / 2 + 0.5)
+                #y = int(ev.y() / 2 + 0.5)
+                events_blue.push_back(ev.timestamp(), x, y, ev.polarity())
+
+    frame = visualizer.generateImage(events)
+    frame_red = visualizer_red.generateImage(events_red)
+    frame_green1 = visualizer_green1.generateImage(events_green1)
+    frame_green2 = visualizer_green2.generateImage(events_green2)
+    frame_blue = visualizer_blue.generateImage(events_blue)
+
+    # try and combine frames, red, g1, g2 , blue as a single tile called 'frame_bayer'
+
+    #set up frame by horizontally and then vertically combining the streams? 
+    '''
+    r | g1
+    g2| b
+    '''
+    
+    #stack images 
+
+    # Show the accumulated image
+    cv.imshow("Preview", frame)
+
+    cv.imshow("red", frame_red)
+    print(f"Received events for red (odd, odd)within time range [{events_red.getLowestTime()}; {events_red.getHighestTime()}]")
+
+    cv.imshow("green1", frame_green1)
+    print(f"Received events for green (odd, even) within time range [{events_green1.getLowestTime()}; {events_green1.getHighestTime()} ]")
+
+    cv.imshow("Green2", frame_green2)
+    print(f"Received events for green (even, odd) within time range [{events_green2.getLowestTime()}; {events_green2.getHighestTime()}]")
+
+    cv.imshow("blue", frame_blue)
+    print(f"Received events for blue (even, even) within time range [{events_blue.getLowestTime()}; {events_blue.getHighestTime()}]")
+
+    cv.waitKey(2)
+# Run the loop while camera is still connected
+
+# Register callback to be performed every 33 milliseconds
+
+slicer.doEveryTimeInterval(timedelta(milliseconds=33), slicing_callback) # if preview is black check for this. 
+
+while capture.isRunning():
+      
+    events = capture.getNextEventBatch()
+
+   
+
+    # The method does not wait for data arrive, it returns immediately with
+
+    # latest available data or if no data is available, returns a `None`
+
+    if events is not None:
+
+        # Print received packet time range
+        slicer.accept(events)
+    
+        print(f"Received events within time range [{events.getLowestTime()}; {events.getHighestTime()}]")
+        
+
+    else:
+
+        # No data has arrived yet, short sleep to reduce CPU load
+
+        time.sleep(0.001) # Read batch of events
