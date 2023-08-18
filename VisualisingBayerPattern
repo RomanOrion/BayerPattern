@@ -5,6 +5,8 @@ import time
 import cv2 as cv
 
 from datetime import timedelta
+
+import numpy as np
 # Open any camera
 
 capture = dv.io.CameraCapture()
@@ -74,20 +76,15 @@ def slicing_callback(events: dv.EventStore):
             x = int(ev.x())
             y = int(ev.y())
             if (ev.x() % 2 != 0 and ev.y() % 2 != 0):  # if the event is red
-            #   x = int(ev.x()/ 2) these commented outlines are for scaling  
-            #  y = int(ev.y()/ 2) 
                 events_red.push_back(ev.timestamp(), x, y, ev.polarity())
             elif (ev.x() % 2 != 0 and ev.y() % 2 == 0):  # if the event is green 1
-             #   x = int(ev.x() / 2)  
-                #  y = int(ev.y() / 2 + 0.5)
+             
                 events_green1.push_back(ev.timestamp(), x, y, ev.polarity())
             elif (ev.x() % 2 == 0 and ev.y() % 2 != 0):  # if the event is green 2
-                #x = int(ev.x() / 2 + 0.5)
-                #y = int(ev.y() / 2)
+                
                 events_green2.push_back(ev.timestamp(), x, y, ev.polarity())
             elif (ev.x() % 2 == 0 and ev.y() % 2 == 0):  # if the event is blue
-                #x = int(ev.x() / 2 + 0.5)
-                #y = int(ev.y() / 2 + 0.5)
+                
                 events_blue.push_back(ev.timestamp(), x, y, ev.polarity())
 
     frame = visualizer.generateImage(events)
@@ -96,17 +93,9 @@ def slicing_callback(events: dv.EventStore):
     frame_green2 = visualizer_green2.generateImage(events_green2)
     frame_blue = visualizer_blue.generateImage(events_blue)
 
-    # try and combine frames, red, g1, g2 , blue as a single tile called 'frame_bayer'
 
-    #set up frame by horizontally and then vertically combining the streams? 
-    '''
-    r | g1
-    g2| b
-    '''
-    
-    #stack images 
 
-    # Show the accumulated image
+    #Show the accumulated image
     cv.imshow("Preview", frame)
 
     cv.imshow("red", frame_red)
@@ -149,5 +138,7 @@ while capture.isRunning():
     else:
 
         # No data has arrived yet, short sleep to reduce CPU load
+
+        time.sleep(0.001) # Read batch of events
 
         time.sleep(0.001) # Read batch of events
